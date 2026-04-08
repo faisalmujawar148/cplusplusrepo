@@ -1,0 +1,139 @@
+* Constants and Strings
+** Revalidating an invalid ~std::string_view~
+#+begin_src C++
+  #include <iostream>
+  #include <string>
+  #include <string_view>
+
+  int main()
+  {
+    std::string s { "Hello World" };
+    std::string_view sv { s }; // sv is now viewing s
+
+    s = "Hello Universe";      // modifies s, which invalidates sv (s is still valid)
+    std::cout << sv << '\n';   // undefined behaviour
+
+    sv = s;                    // revalidates sv: sv is now viewing s again
+    std::cout << sv << '\n';   // prints "Hello, universe"
+    
+    return 0;
+  }
+#+end_src
+- When we print sv the first time we get undefined behaviour this is due to the fact that we modified the string.
+- We need to do ~sv = s~ to validate the string_view.
+
+** Be careful returning a std::string_view
+#+begin_src C++
+  #include <iostream>
+  #include <string>
+  #include <string_view>
+
+
+  std::string_view getBoolName(bool b)
+  {
+    std::string t { "true" };  // local variable
+    std::string f { "false" }; // local variable
+
+    if(b)
+      return t; // return a std::string_view viewing t
+
+    return f;   // return a std::string_view viewing f
+  } // t and f are both destroyed at the end of the function
+
+
+  int main()
+  {
+    std::cout << getBoolName(true) << ' ' << getBoolName(false) << '\n'; // undefined behaviour
+    
+    return 0;
+  }
+#+end_src
+
+- The strings t and f are destroyed after they are returned. This means that std::string_view is viewing an object that has been destroyed.
+
+- There are two cases where we can safely return a ~std::string_view~
+1) Using C literals, because C-literals exist for the entire program. It's fine and useful to return C-style literals from a function
+   that has a return type ~std::string_view~
+   #+begin_src C++
+     #include <iostream>
+     #include <string>
+     #include <string_view>
+
+     std::string_view getBoolName(bool b)
+     {
+       if(b)
+         return "true";
+
+       return "false";
+     }
+
+     int main()
+     {
+       std::cout << getBoolName(true) << " " << getBoolName(false) << '\n';
+       
+       return 0;
+     }
+   #+end_src
+- Since C-style string literals exist for the entire program, this program will run with no problems.
+
+2) It's generally okay to return a function parameter of type ~std::string_view~
+   #+begin_src C++
+     #include <iostream>
+     #include <string>
+     #include <string_view>
+
+     std::string_view firstAlphabetical(std::string_view s1, std::string_view s2)
+     {
+       if(s1 < s2)
+         return s1;
+       return s2;
+     }
+
+     int main()
+     {
+       std::string a {"Hello"};
+       std::string b {"World"};
+
+       std::cout << firstAlphabetical(a, b) << '\n';
+       
+       return 0;
+     }
+   #+end_src
+- The reason this is okay is cuz a and b are variables that are in scope of the caller. The views ~s1~ and ~s2~ are put on ~a~ and ~b~
+  . When the function returns it is returning a view back to the caller which is ~a~ or ~b~.
+
+** View Modification Functions
+- ~remove_prefix()~ function removes characters from the left side of the view.
+- ~remove_suffix()~ function removes characters from the right side of the view.
+
+  #+begin_src C++
+    #include <iostream>
+    #include <string_view>
+
+    int main()
+    {
+      std::string_view str{ "Peach" };
+      std::cout << str << '\n';
+
+      // Remove 1 character from left side of view
+      str.remove_prefix(1);
+      std::cout << str << '\n';
+
+      str.remove_suffix(2);
+      std::cout << str << '\n';
+
+      str = "Peach"; // reset the view
+      std::cout << str << '\n';
+      
+      return 0;
+    }
+  #+end_src
+- We can reset the view by reassigning the value back to it again.
+- We can use this to view substrings.
+
+** ~std::string_view~ may or may not be null terminated
+- If string_view is looking at a C-style string called "snowball", which is always null terminated. However, if it is watching
+  a substring for example "now" then it will not be null terminated.
+- string_view keeps track of the length of the string or substring it is viewing. So it does not need a null terminator. Converting
+  a string_view to a string will work regardless if it is null terminated or not.
+- Note that C-Style strings and std::strings are always null terminated. A std::string_view may or may not be null terminated.
