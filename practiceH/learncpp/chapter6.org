@@ -1,0 +1,64 @@
+* Operators
+** Operator precedence and associativity
+- Operators with higher precedence are grouped with operands first.
+- When there are multiple operators of the same precedence then we look at the associativity. This could be from left to right,
+  or right to left.
+- If we parenthesise we can increase the precedence level of the operands inside it.
+** The order of evaluation of operands is mostly unspecified
+#+begin_src C++
+  #include <iostream>
+
+
+  int getValue()
+  {
+    std::cout << "Enter an integer: ";
+
+    int x{};
+    std::cin >> x;
+    
+    return x;
+  }
+
+  void printCalculation(int x, int y, int z)
+  {
+    std::cout << x + (y * z);
+  }
+  int main()
+  {
+    printCalculation(getValue(), getValue(), getValue()); // this line is ambiguous
+    
+    return 0;
+  }
+#+end_src
+
+- The arguments to printCalculation() will evaluate in right-to-left order.
+- So if the user enters 1, 2 and 3. It will return 5.
+- The above program can be made unambiguous by making each function call a separate statement:
+  #+begin_src C++
+    #include <iostream>
+
+    int getValue()
+    {
+      std::cout << "Enter an integer: ";
+
+      int x{};
+      std::cin >> x;
+      return x;
+    }
+
+    void printCalculations(int x, int y, int z)
+    {
+      std::cout << x + (y * z);
+    }
+
+    int main()
+    {
+      int a{ getValue() };
+      int b{ getValue() };
+      int c{ getValue() };
+
+      printCalculations(a, b, c);
+      
+      return 0;
+    }
+  #+end_src
