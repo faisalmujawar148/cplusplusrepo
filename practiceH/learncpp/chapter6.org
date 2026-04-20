@@ -57,8 +57,387 @@
       int b{ getValue() };
       int c{ getValue() };
 
+
       printCalculations(a, b, c);
       
       return 0;
     }
   #+end_src
+
+* Arithmetic Operators
+** Using static cast to do floating point division with integers
+#+begin_src C++
+  #include <iostream>
+
+  int main()
+  {
+    constexpr int x{ 7 };
+    constexpr int y{ 4 };
+
+    std::cout << "int/int = " << x / y << '\n';
+    std::cout << "double/int = " << static_cast<double>(x) / y << '\n';
+    std::cout << "int/double = " << x / static_cast<double>(y) << '\n';
+    std::cout << "double/double = " << static_cast<double>(x) / static_cast<double>(y) << '\n';
+
+    return 0;
+  }
+#+end_src
+
+- If either operand is a floating point number the division will be a floating point division, not an integer division.
+
+** Exponent operator
+#+begin_src C++
+  #include <cmath>
+
+  double x{ std::pow(3.0, 4.0) }; 
+#+end_src
+- The problem with this is that it doesn't do integer exponents. To do that you can make your own function:
+* Increment/decrement operators, and side effects
+1) Prefix Increment ++x Increment x, then return x
+2) Prefix Decrement --x Decrement x, then return x
+3) Postfix Increment x++ Copy x, then increment x, then return the copy
+4) Postfix Decrement x-- Copy x, then decrement x, then return the copy
+
+** Prefix Increment and decrement
+#+begin_src C++
+  #include <iostream>
+
+  int main()
+  {
+    int x { 5 };
+    int y { ++x }; // x is incremented to 6, x is evaluated to the value 6 and 6 is assigned to y
+
+    std::cout << x << ' ' << y << '\n';
+    return 0;
+  }
+#+end_src
+
+#+RESULTS:
+: 6 6
+
+** Postfix increment and decrement
+#+begin_src C++
+  #include <iostream>
+
+  int main()
+  {
+    int x { 5 };
+    int y { x++ }; // x is incremented to 6, copy of the original x is evaluated to the value 5, and 5 is assigned to y
+
+    std::cout << x << ' ' << y << '\n';
+    return 0;
+  }
+#+end_src
+
+#+RESULTS:
+: 6 5
+
+#+begin_src C++
+  #include <iostream>
+
+  int main()
+  {
+    int x { 5 };
+    int y { 5 };
+    std::cout << x << ' ' << y << '\n';
+    std::cout << ++x << ' ' << --y << '\n'; // prefix
+    std::cout << x << ' ' << y << '\n';
+    std::cout << x++ << ' ' << y-- << '\n'; // postfix
+    std::cout << x << ' ' << y << '\n';
+    
+    return 0;
+  }
+#+end_src
+
+#+RESULTS:
+| 5 | 5 |
+| 6 | 4 |
+| 6 | 4 |
+| 6 | 4 |
+| 7 | 3 |
+
+On the 10th line, we do a postfix increment and decrement.
+The copy of x and y are what is sent to std::cout, so we don't see the increment
+and decrement reflected here. Those changes don't show up until the next line, when x and y evaluated again.
+
+** When to use prefix vs postfix
+- Prefer prefix version as it is most performant and less likely to cause surprises.
+- Use the postfix version when doing so provides more concise or understandable code. 
+
+** Side effects
+- Side effects is an observable effect beyond producing a return value.
+  Examples are changing the value of objects, doing input or output, or updating a graphical user interface (e.g. enabling or disabling a button)
+  #+begin_src C++
+    x = 5;// the assignment operator has side effect of changing value of x
+    ++x; // operator++ has side effect of incrementing x
+    std::cout << x; // operator<< has side effect of modifying the state of the console
+  #+end_src
+
+** Side effects can cause order of evaluation issues
+#+begin_src C++
+  #include <iostream>
+
+  int add(int x, int y)
+  {
+    return x + y;
+  }
+
+  int main()
+  {
+    int x { 5 };
+    int value{ add(x, ++x) }; // undefined behaviour: is this 5 + 6 or 6 + 6?
+    // depends on the compiler what order it evaluates
+    std::cout << value << '\n'; // value could be 11 or 12, depending on how the above line evaluates 
+    return 0;
+  }
+#+end_src
+
+#+RESULTS:
+: 12
+
+- Ensure that any variable that has side effects applied is applied no more than once in a given sentence.
+
+** The comma operator
+- Comma -> x,y Evaluate x then y, returns value of y
+  #+begin_src C++
+    #include <iostream>
+
+    int main()
+    {
+      int x{ 1 };
+      int y{ 2 };
+
+      std::cout << (++x, ++y) << '\n'; // increment x and y, evaluates to the right operand
+
+      return 0;
+    }
+  #+end_src
+
+  #+RESULTS:
+  : 3
+
+- The above program only returns y, this is because it is the right operand
+
+- As comma has the lowest precedence of all the operators, even lower than assignemnt.
+  The following two lines can do different things:
+  #+begin_src C++
+    z = (a, b); // evaluate (a, b) first to get result of b, then assign that value to z
+    z = z, b // evaluates as "(z = a), b" so z gets assigned the value of a, and b is evaluated and discarded.
+  #+end_src
+
+  in almost every case its better to avoid using comma operators and just write separate statements:
+  #+begin_src C++
+    #include <iostream>
+
+    int main()
+    {
+      int x{ 1 };
+      int y{ 2 };
+
+      ++x;
+      std::cout << ++y << '\n';
+      
+      return 0;
+    }
+  #+end_src
+
+- It's best to avoid comma operator except within for loops.
+** Comma as a separator
+- The comma operator is often used as a separator.
+
+* Conditional operator
+#+begin_src 
+  if (x > y)
+   max = x;
+  else
+   max = y;
+#+end_src
+
+This can be rewritten as:
+max = ((x > y) ? x : y);
+
+** The conditional operator evaluates as part of an expression
+- Conditional operator can be used in a constant expression.
+  #+begin_src C++
+    #include <iostream>
+
+    int main()
+    {
+      constexpr bool inBigClassroom { false };
+      constexpr int classSize { inBigClassroom ? 30 : 20 };
+      std::cout << "The class size is: " << classSize << '\n';
+      
+      return 0;
+    }
+  #+end_src
+
+  #+RESULTS:
+  : The class size is: 20
+
+- There is no if-else replacement for this.
+
+  #+begin_src C++
+    #include <iostream>
+
+    int main()
+    {
+      constexpr bool inBigClassroom { false };
+
+      if(inBigClassroom)
+        constexpr int classSize{ 30 };
+      else
+        constexpr int classSize{ 20 };
+
+      std::cout << "The class size is: " << classSize << '\n'; // compile error: classSize is not defined
+
+      return 0;
+    }
+  #+end_src
+
+  #+RESULTS:
+- This doesn't compile, this is due to the fact that variables if-statements or else-statements die at the of the
+  if-statement or else-statement. Thus, ~classSize~ is already destroyed by the time we try to print it.
+
+** Parenthesising the conditional operator
+#+begin_src C++
+  #include <iostream>
+
+  int main()
+  {
+    int x { 2 };
+    std::cout << (x < 0) ? "negative" : "non-negative";
+    
+    return 0;
+  }
+#+end_src
+
+#+RESULTS:
+: 0
+
+- The result of this is 0:
+  - We get ~x < 0~ evaluates to ~false~. The partially evaluated expression is now
+    ~std::cout << false ? "negative" : "non-negative"~
+  - Because << has higher precedence than operator?, this expression becomes ~(std::cout << false) ? "negative" : "non-negative"~
+  - The partialy evaluated expression is now ~std::cout ? "negative" : "non-negative"~.
+  - ~std::cout~ has a defined conversion to bool, which most likely will return false.
+  - Assuming it returns false we get ~false ? "negative" : "non-negative"~.
+  - This evaluates to "non-negative". As a string literal by itself has no effect we are done.
+- To avoid such issues always parenthesise the conditional operation.
+- When using a compound expression make sure to parenthesise the operators as well as the condition.
+
+** The type of the expressions must match or be convertible
+One of the following must be true:
+- the type of the second and third operands must match.
+- The compiler must be able to convert one or both of the second and third operands to matching types.
+
+  #+begin_src C++
+    #include <iostream>
+
+    int main()
+    {
+      std::cout << (true ? 1 : 2) << '\n';
+      std::cout << (false ? 1 : 2.2) << '\n'; // okay: int value 1 converted to double
+      std::cout << (true ? -1 : 2u) << '\n'; // surprising result: -1 converted to unsigned int, results out of range
+
+      return 0;
+    }
+  #+end_src
+
+  #+RESULTS:
+  |          1 |
+  |        2.2 |
+  | 4294967295 |
+
+- If the compiler can't find a way to convert the second and third operands to a matching type a compile error will occur:
+  #+begin_src C++
+    #include <iostream>
+
+    int main()
+    {
+      constexpr int x { 5 };
+      std::cout << ((x != 5) ? x : "x is 5"); // compile error: can't find common type for constexpr int and C-style literal
+      return 0;
+    }
+  #+end_src
+
+  #+RESULTS:
+
+- In such cases we can do an explicit conversion or use if-else
+
+  #+begin_src C++
+    #include <iostream>
+    #include <string>
+
+    int main()
+    {
+      constexpr int x{ 5 };
+
+      std::cout << ((x != 5) ? std::to_string(x) : std::string{"x is 5"}) << '\n';
+      
+      return 0;
+    }
+  #+end_src
+
+  #+RESULTS:
+  : x is 5
+
+** When to use conditional operators:
+- Initialising an object with one of two values
+- Assigning one of two objects values to an object
+- Passing one of two values to a function
+- Returning one of two values from a function
+- Printing one of two values
+
+* Relational operators and floating point conversions
+** Comparison of calculated floating point values can be problematic
+#+begin_src C++
+  #include <iostream>
+
+  int main()
+  {
+    constexpr double d1{ 100.0 - 99.99 }; // should be equal to 0.01 mathematically
+    constexpr double d2{ 10.0 - 9.99 }; // should equal 0.01 mathematically
+
+    if (d1 == d2)
+      std::cout << "d1 == d2" << '\n';
+    else if (d1 > d2)
+      std::cout << "d1 > d2" << '\n';
+    else if (d1 < d2)
+      std::cout << "d1 < d2" << '\n';
+    
+    return 0;
+  }
+
+#+end_src
+
+#+RESULTS:
+: d1 > d2
+
+- This result is unexpected.
+- However, when the operands are almost identical, these operators should be considered unreliable.
+- It is okay to compare to floating point literals with each other:
+
+  #+begin_src 
+  if(someFcn() == 0.0) // okay if someFcn returns 0.0 as a literal only
+  #+end_src
+
+  #+begin_src 
+  constexpr double gravity { 9.8 };
+  if(gravity == 9.8) // okay if gravity was initialised with a literal 
+  #+end_src
+
+** Short Circuit Evaluation
+Avoid using expressions with side effects in conjunction with logical AND or logical OR.
+
+** De Morgen's laws
+
+\begin{equation}
+\overline{(A . B)} = (\overline{A} + \overline{B})
+\end{equation}
+
+** XOR operator
+C++ doesn't have an XOR operator when working with booleans we can use ~operator!=~
+- we can also convert to bool to do logical xor
+
+~if(!!a != !!b != !!c)~ We can do this as ~!operator~ implicitly converts to boolean.
+We do !! twice to reinvert it back to its original state. While keeping it a boolean.

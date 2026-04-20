@@ -1,0 +1,560 @@
+- Type conversion can fail, if the compiler can't find an acceptable conversion,
+  then the compilation will fail with a compiler error.
+
+  #+begin_src C++
+    int main()
+    {
+      int x { "14" };
+
+      return 0;
+    }
+  #+end_src
+
+  - In other cases:
+    #+begin_src C++
+      int x { 3.5 };
+    #+end_src
+- brace initialisation disallows conversions that result in data loss.
+
+Numeric promotion
+- A numeric promotion is a type of conversion of certain narrow numeric types (such as char)
+  to certain wider numeric types (typically =int= or =double=) that can be processed efficiently.
+- All numeric promotions are value-preserving. A value-preserving conversion is one where every possible source value can be
+  converted into an equal value of the destination type.
+
+- floating point promotion of type =float= can be converted to type =double=.
+
+  #+begin_src C++
+    #include <iostream>
+
+    void printDouble(double d)
+    {
+      std::cout << d << '\n';
+    }
+
+    int main()
+    {
+      printDouble(5.0);
+      printDouble(4.0f); // numeric promotion of float to double
+      return 0;
+    }
+  #+end_src
+
+  - signed char or signed short can be converted to int
+
+  - unsigned char, char8_t, and unsigned short can be converted to int if
+    int can hold the entire range of the type, or unsigned int otherwise.
+
+  - bool can be converted to int, with false becoming 0 and true becoming 1
+
+    #+begin_src C++
+      #include <iostream>
+
+      void printInt(int x)
+      {
+        std::cout << x << '\n';
+      }
+
+      int main()
+      {
+        printInt(2);
+
+        short s{ 3 };
+
+        printInt(s);    // numeric promotion of short to int
+
+        printInt('a');  // numeric promotion of char to int
+        printInt(true); // numeric promotion of bool to int
+
+        return 0;
+      }
+    #+end_src
+
+- smaller types to larger types.
+
+Safe and unsafe conversions
+1) Value preserving conversions are safe numeric conversions where the destination
+   type can exactly represent all possible values in the source types
+
+   #+begin_src C++
+     #include <iostream>
+
+     int main()
+     {
+       int n = static_cast<int>(static_cast<long>(3));
+       std::cout << n << '\n';
+
+       char c = static_cast<char>(static_cast<double>('c'));
+       std::cout << c << '\n';
+
+       return 0;
+     }
+   #+end_src
+
+   #+RESULTS:
+   | 3 |
+   | c |
+- There is nothing lost in these conversions.
+2) Reinterpretive conversions are unsafe numeric conversions where the converted value
+   may be different than the source value, but no data is lost.
+
+For example, when converting a =signed int= to an =unsigned int=.
+
+#+begin_src C++
+  int main()
+  {
+    int n1 { 5 };
+    unsigned int u1 { n1 }; // okay will be converted to unsigned int 5 (value preserved)
+
+    int n2 { -5 };
+    unsigned int u2 { n2 }; // bad will result in large int outside range of signed int
+
+    return 0;
+  }
+#+end_src
+
+- Reinterpretive conversions don't lose data on converting back to source type:
+
+  #+begin_src C++
+    #include <iostream>
+
+    int main()
+    {
+      int u = static_cast<int>(static_cast<unsigned int>(-5));
+      std::cout << u << '\n'; // prints -5
+
+      return 0;
+    }
+
+  #+end_src
+
+  #+RESULTS:
+  : -5
+3) Lossy conversion are unsafe numeric conversions where data is lost during the conversions:
+
+For example =double= to =int= may cause data loss
+#+begin_src C++
+  int i = 3.0; // okay will be converted to integer value
+  int j = 3.5; // data lost: will be converted to int value 3
+#+end_src
+
+Conversion from =double= to =float= can also result in data loss
+#+begin_src C++
+  float f = 1.2;
+  float g = 1.23456789; // data lost: will be converted to float 1.23457 (precision lost)
+#+end_src
+
+- Converting a value that has lost data back to the source type will result in a value that is different
+  than the original value:
+
+  #+begin_src C++
+    #include <iostream>
+
+    int main()
+    {
+      double d { static_cast<double>(static_cast<int>(3.5)) };
+      std::cout << d << '\n'; // prints 3
+
+      double d2 { static_cast<double>(static_cast<float>(1.23456789)) };
+      std::cout << d2 << '\n'; // prints 1.23457
+
+      return 0;
+    }
+  #+end_src
+
+  #+RESULTS:
+  |       3 |
+  | 1.23457 |
+
+- Converting a value whose range doesn't support that value will result in unexpected
+  output
+  #+begin_src C++
+    #include <iostream>
+    
+    int main()
+    {
+      int i { 30000 };
+      char c = i; // char has range -128 to 127
+
+      std::cout << static_cast<int>(c) << '\n';
+
+      return 0;
+    }
+  #+end_src
+
+  #+RESULTS:
+  : 48
+
+Narrowing conversions are:
+- From a floating point to an integral type
+- Signed/Unsigned conversions may not produce compiler warnings
+
+Brace initialisation disallows narrowing conversions
+
+#+begin_src C++
+  int main()
+  {
+    int i { 3.5 }; // won't compile
+
+    return 0;
+  }
+#+end_src
+
+if you want to do a narrowing conversion use static_cast
+
+#+begin_src C++
+  int main()
+  {
+    double d { 3.5 };
+    
+    int i { static_cast<int>(d) };
+
+    return 0;
+  }
+#+end_src
+
+For constexpr it will compile error if you do narrowing conversions like
+with unsigned/signed
+
+#+begin_src C++
+  #include <iostream>
+
+  int main()
+  {
+    constexpr int n1{ 5 };
+    unsigned int u1 { n1 };
+
+    constexpr int n2 { -5 };
+    unsigned int u2 { n2 }; // compile error: conversion narrowing due to value change
+
+    return 0;
+  }
+#+end_src
+
+#+begin_src C++
+  #include <iostream>
+  #include <typeinfo> // for typeid()
+
+  int main()
+  {
+    int i{ 2 };
+    std::cout << typeid(i).name() << '\n';
+
+    double d{ 3.5 };
+    std::cout << typeid(d).name() << '\n';
+
+    std::cout << typeid(i + d).name() << ' ' << i + d << '\n';
+
+    return 0;
+  }
+#+end_src
+
+#+RESULTS:
+| i |     |
+| d |     |
+| d | 5.5 |
+
+#+begin_src C++
+  #include <iostream>
+  #include <typeinfo> // for typeid()
+
+  int main()
+  {
+    short a{ 4 };
+    short b{ 5 };
+    std::cout << typeid(a + b).name() << ' ' << a + b << '\n';
+
+    return 0;
+  }
+#+end_src
+
+#+RESULTS:
+: i 9
+
+#+begin_src C++
+  #include <iostream>
+  #include <typeinfo>
+
+  int main()
+  {
+    std::cout << typeid(5u-10).name() << ' ' << 5u - 10 << '\n';
+
+    return 0;
+  }
+#+end_src
+
+#+RESULTS:
+: j 4294967291
+
+#+begin_src C++
+  #include <iostream>
+
+  int main()
+  {
+    std::cout << std::boolalpha << (-3 < 5u) << '\n';
+
+    return 0;
+  }
+#+end_src
+
+#+RESULTS:
+: false
+
+- Don't mix unsigned ints and signed ints
+
+- Avoid =const_cast= and =reinterpret_cast= unless you have a very good reason to use them.
+- Avoid =C-style casts= as we don't know what type of conversion if will do(static, const or reinterpret).
+
+- Use static_cast to make narrowing conversions explicit.
+
+- Type aliases
+  - using keyword is used to create alias for existing data types.
+    #+begin_src C++
+      using Distance = double;
+    #+end_src
+ - User created type aliases should start with a capital letter and have no suffix.
+   #+begin_src C++
+     #ifdef INT_2_BYTES
+     using int8_t = char;
+     using int16_t = int;
+     using int32_t = long;
+     #else
+     using int8_t = char;
+     using int16_t = short;
+     using int32_t = int;
+     #endif
+   #+end_src
+- On machines where integers are only 2 bytes, INT_2_BYTES can be defined.
+  On machines where integers are 4 bytes it will leave the top portion undefined and will execute
+  the else, using those type aliases.
+
+- Using type aliases make complex types easier to read.
+
+Type deduction is a feature that allows the compiler to deduce the type of an object from the
+object's initialiser.
+
+#+begin_src C++
+  int main()
+  {
+    auto d { 5.0 }; // 5.0 is a double literal, so d will be deduced as a double
+    auto i { 1 + 2 }; // 1 + 2 evaluates as an int, so i will be deduced as an int
+    auto x { i }; // i is an int, so x will be deduced as an int
+
+    return 0;
+  }
+#+end_src
+
+#+begin_src C++
+  int add(int x, int y)
+  {
+    return x + y;
+  }
+
+  int main()
+  {
+    auto sum { add(5, 6) }; // will be deduced as int
+    
+    return 0;
+  }
+#+end_src
+
+#+begin_src C++
+  int main()
+  {
+    auto a { 1.23f }; // f suffix causes a to be deduced as a float
+    auto b { 5u };    // u suffix causes b to be deduced as an unsigned int
+
+    return 0;
+  }
+#+end_src
+
+#+begin_src C++
+  int main()
+  {
+    int a { 5 };               // a is an int
+    
+    const auto b { 5 };        // b is a const int
+    constexpr auto c { 5 };    // c is a constexpr int
+
+    
+    return 0;
+  }
+#+end_src
+
+#+begin_src C++
+  void foo()
+  {
+    
+  }
+  int main()
+  {
+    auto a;            // the compiler won't be able to deduce the type of a 
+    auto b { };        // the compiler won't be able to deduce the type of b
+    auto c { foo() };  // Invalid: c can't have type incomplete type void
+
+    return 0;
+  }
+#+end_src
+
+- Auto can't be of type incomplete type void
+
+Type deduction drops =const= from the deduced type
+#+begin_src C++
+  int main()
+  {
+    const int a { 5 }; // a has type const int
+    auto b { a };      // b has type int (const dropped)
+
+    return 0;
+  }
+#+end_src
+
+- In this case b is deduced as type int, not const int.
+- If you want deduced type to be const you need to supply it yourself.
+
+  #+begin_src C++
+    int main()
+    {
+      const int a { 5 };   // a has type const int
+      const auto b { a };  // b has type const int (const dropped but reapplied)
+
+      return 0;
+    }
+  #+end_src
+
+Type deduction of string literals
+#+begin_src C++
+  auto s { "Hello, world" }; // s will be of type const char *, not std::string
+#+end_src
+
+- if wer want std::string or std::string_view we need to pass in the literal suffix
+  =sv= or =s=
+
+  #+begin_src C++
+    #include <string>
+    #include <string_view>
+
+    int main()
+    {
+      using namespace std::literals; // easiest way to access the s and sv suffixes
+
+      auto s1 {"goo"s };   // "goo"s is a std::string literal, so s1 will be deduced as a std::string
+      auto s2 { "moo"sv }; // "moo"sv is a std::string_view literal, so s2 will be deduced as a std::string_view
+      
+      return 0;
+    }
+  #+end_src
+
+Type deduction and constexpr
+- =constexpr= is not part of the type system, it cannot be deduced as part of type deduction.
+  However, a constexpr variable is implicitly const, and this const will be dropped during type deduction.
+
+  #+begin_src C++
+    int main()
+    {
+      constexpr double a { 3.4 };
+
+      auto b { a };             // b has type double (const dropped)
+      const auto c { a };       // c has type const double (const dropped but reapplied)
+      constexpr auto d { a };   // d has type const double (const dropped but implicitly reapplied by constexpr)
+
+      return 0;
+    }
+  #+end_src
+
+- Type deduction only works on variables with initialisers
+  #+begin_src C++
+    int x; // works
+    auto y; // the compiler will error out as it can't deduce the type for y
+  #+end_src
+
+- Guarantees there will not be any unintended performance impacting conversions:
+  #+begin_src C++
+    std::string_view getString(); // some function that returns a std::string_view
+
+    std::string s1 { getString() }; // bad: expensive conversion from std::string_view to std::string
+
+    auto s2 { getString() };      // good: no conversion required
+  #+end_src
+
+- When using auto make sure you don't mess up the suffix's for the literals. Otherwise you won't get
+  the right types.
+
+- Use type deduction for your variables when the type of the object doesn't matter.
+
+- Favour an explicit type when you require a type that differs from the type of the initialiser, or when your object
+  is used in a context where making the type obvious is useful.
+
+- When using =auto= return type, all return statements within the function must return values of the same type, otherwise
+  you will get an error:
+  #+begin_src C++
+    auto someFcn(bool b)
+    {
+      if(b)
+        return 5;   // return type int
+      else
+        return 6.7; // return type double
+    }
+  #+end_src
+- In this case we need to explicitly specify a return type for the function, or explicitly convert non-matching return statements to the same type.
+
+Downsides:
+- Must be fully defined a forward declaration isn't enough:
+
+  #+begin_src C++
+    #include <iostream>
+
+    auto foo();
+
+    int main()
+    {
+      std::cout << foo() << '\n'; // the compiler only has seen the forward declaration at this point
+
+      return 0;
+    }
+
+    auto foo()
+    {
+      return 5;
+    }
+  #+end_src
+
+- We don't know what type it will deduce as there isn't any initialiser for functions.
+  We need to make sure the return statements actually return the desired type.
+
+- Prefer explicit return types over return type deduction.
+
+Trailing return type syntax
+- The =auto= keyword can be used to declare functions using a trailing return syntax, where the syntax
+  return type is specified after the rest of the function prototype
+
+  #+begin_src C++
+    int add (int x, int y)
+    {
+      return (x + y);
+    }
+
+    // is equivalent to
+
+    auto add(int x, int y) -> int
+    {
+      return (x + y);
+    }
+  #+end_src
+
+ 1) For functions that have complex return types, a trailing return type can make the function easier to read:
+
+    #+begin_src C++
+      #include <type_traits> // for std::common_type
+
+      std::common_type_t<int, double> compare(int, double); // harder to read (where is the name of the function?)
+        
+      auto compare(int, double) -> std::common_type_t<int,double>; // easier to read ( we don't have to read the return type unless we care)
+    #+end_src
+2) The trailing return syntax can be used to align the names of your function, which makes consecutive function declaration easier to read:
+   #+begin_src C++
+     auto add(int x, int y) -> int;
+     auto divide(double x, double y) -> double;
+     auto printSomething() -> void;
+     auto generateSubstring(const std::string &s, int start, int len) -> std::string;
+   #+end_src
